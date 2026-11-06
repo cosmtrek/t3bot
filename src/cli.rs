@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use std::io::Read;
 
 #[derive(Parser)]
-#[command(name = "t3bot", version, about = "Follow-up ledger for T3 threads: what's next, and whose move it is.")]
+#[command(name = "t3bot", version = env!("T3BOT_VERSION"), about = "Follow-up ledger for T3 threads: what's next, and whose move it is.")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,

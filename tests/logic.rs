@@ -370,3 +370,12 @@ fn init_adds_projects_once_and_rm_removes() {
     assert!(setup::rm_projects(&mut cfg, &[abs]).is_err());
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn release_version_comparison() {
+    assert!(setup::is_newer("v0.2.0", "0.1.0"));
+    assert!(setup::is_newer("v0.1.1", "0.1.0-dev+abc.dirty"));
+    assert!(!setup::is_newer("v0.1.0", "0.1.0-dev+abc"));
+    assert!(!setup::is_newer("v0.1.0", "0.2.0"));
+    assert!(!setup::is_newer("releases", "0.1.0"));
+}

@@ -159,9 +159,42 @@ fn version_of(bin: &str) -> Option<String> {
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
+/// "1.2.3" (optionally "v"-prefixed, any "-pre"/"+build" ignored) → (1, 2, 3).
+fn semver(v: &str) -> Option<(u64, u64, u64)> {
+    let core = v.trim().trim_start_matches('v').split(['-', '+']).next()?;
+    let mut it = core.split('.').map(|x| x.parse::<u64>().ok());
+    Some((it.next()??, it.next()??, it.next()??))
+}
+
+/// Is release tag `latest` newer than this build's version? Dev builds compare by their base version.
+pub fn is_newer(latest: &str, current: &str) -> bool {
+    matches!((semver(latest), semver(current)), (Some(l), Some(c)) if l > c)
+}
+
+/// Latest release tag, via the github.com redirect (no API token, short timeout). None when offline.
+fn latest_release() -> Option<String> {
+    let out = Command::new("curl")
+        .args(["-fsSI", "-o", "/dev/null", "-w", "%{redirect_url}", "--max-time", "3"])
+        .arg("https://github.com/cosmtrek/t3bot/releases/latest")
+        .output()
+        .ok()?;
+    let url = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let tag = url.rsplit('/').next()?.to_string();
+    tag.starts_with('v').then_some(tag)
+}
+
 /// Local checks: config file, binaries, skill, timers. Returns (checks, t3 usable).
 pub fn check_host(cfg: &Config, config_path: &Path) -> (Vec<Check>, bool) {
     let mut out = Vec::new();
+    let me = env!("T3BOT_VERSION");
+    let kind = if me.contains("-dev") { "dev build" } else { "release" };
+    match latest_release() {
+        Some(tag) if is_newer(&tag, me) => {
+            out.push(check(Level::Warn, "t3bot", format!("{me} ({kind}); {tag} is available → t3bot upgrade")))
+        }
+        Some(tag) => out.push(check(Level::Ok, "t3bot", format!("{me} ({kind}; latest release {tag})"))),
+        None => out.push(check(Level::Ok, "t3bot", format!("{me} ({kind})"))),
+    }
     if config_path.exists() {
         out.push(check(Level::Ok, "config", config::contract_home(&config_path.to_string_lossy())));
     } else {

@@ -81,18 +81,28 @@ cargo test
 CI runs the tests and a [gitleaks](https://github.com/gitleaks/gitleaks) secret scan on every
 push and pull request.
 
-## Release
+## Versions and releases
 
-1. Bump `version` in `Cargo.toml` (and `Cargo.lock` via `cargo build`), merge to `main`.
-2. Tag that commit on `main` and push the tag:
+You pick the version; nothing updates on its own.
 
-   ```sh
-   git tag v0.2.0 && git push origin v0.2.0
-   ```
+- **Release builds** (from a tag, built by CI) report a plain version: `t3bot 0.2.0`.
+- **Local builds** (`cargo build`, `install.sh --from-source`) report
+  `0.2.0-dev+<commit>[.dirty]`, so `t3bot --version` and `t3bot doctor` show which one runs.
+- **Machines upgrade when you run `t3bot upgrade`.** It replaces a dev build too, without
+  `--force`. `t3bot doctor` says when a newer release exists.
 
-The `release` workflow checks that the tag is on `main` and matches `Cargo.toml`, runs the tests,
-builds static musl binaries for `x86_64` and `aarch64` Linux, and publishes a GitHub release
-with `t3bot-<tag>-<target>.tar.gz` (binary, skill, systemd units) plus SHA-256 checksums.
+To cut a release from an up-to-date, clean `main`:
+
+```sh
+scripts/release.sh 0.2.0          # --dry-run to stop before commit/tag/push
+```
+
+It bumps `Cargo.toml`/`Cargo.lock`, runs the tests, commits `release: v0.2.0`, tags `v0.2.0` and
+pushes both. The tag starts the `release` workflow. It checks that the tag is on `main` and
+matches `Cargo.toml`, runs the tests, and builds static musl binaries for `x86_64` and `aarch64`
+Linux. It then publishes a GitHub release with `t3bot-<tag>-<target>.tar.gz` (binary, skill,
+systemd units) and SHA-256 checksums. Before 1.0: bump the patch for fixes and the minor for
+features or config changes.
 
 ## License
 

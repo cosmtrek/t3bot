@@ -43,6 +43,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - name: Build (static, musl)
+        env:
+          T3BOT_RELEASE: "1"
         run: |
           cc_var="CC_$(echo '${{ matrix.target }}' | tr '-' '_')"
           export "$cc_var=musl-gcc"
@@ -57,7 +59,8 @@ jobs:
           cd dist
           tar czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
-          "./$name/t3bot" --version
+          "./$name/t3bot" --version | grep -qx "t3bot ${GITHUB_REF_NAME#v}" \
+            || { echo "::error::binary reports $("./$name/t3bot" --version), expected ${GITHUB_REF_NAME#v}"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}

@@ -91,7 +91,8 @@ install -m 755 "$bin" "$BIN_DIR/.t3bot.new"
 mv -f "$BIN_DIR/.t3bot.new" "$BIN_DIR/t3bot"
 new="v$("$BIN_DIR/t3bot" --version | awk '{print $2}')"
 if [ -n "$installed" ] && [ "$installed" != "$new" ]; then
-  echo "t3bot $installed → $new ($BIN_DIR/t3bot)"
+  case "$installed" in *-dev*) note=" (replaced a dev build)" ;; *) note="" ;; esac
+  echo "t3bot $installed → $new ($BIN_DIR/t3bot)$note"
 else
   echo "t3bot $new → $BIN_DIR/t3bot"
 fi
