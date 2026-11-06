@@ -7,6 +7,17 @@ release-plz from conventional commits.
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/cosmtrek/t3bot/compare/v0.1.0...v0.2.0) - 2026-11-06
+
+### Added
+
+- Local builds report `X.Y.Z-dev+<commit>`; release builds report the plain version
+- `t3bot doctor` shows the running version and whether a newer release exists
+
+### Other
+
+- Releases are cut with release-plz: a release PR per change set, merged to release
+
 ## [0.1.0](https://github.com/cosmtrek/t3bot/releases/tag/v0.1.0) - 2026-11-06
 
 ### Added
