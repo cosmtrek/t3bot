@@ -1,0 +1,10 @@
+# release-plz: on every push to main, open/update a release PR (version bump + CHANGELOG.md)
+# from conventional commits. Merging it tags vX.Y.Z and creates the GitHub release; the
+# release-plz workflow then builds and attaches the Linux binaries.
+[workspace]
+git_only = true                         # versions come from git tags (vX.Y.Z), not crates.io
+publish = false                         # never cargo publish
+semver_check = false                    # binary crate, no library API to check
+features_always_increment_minor = true  # pre-1.0: feat → 0.x+1.0, fix → 0.x.y+1
+release_always = false                  # release only when the release PR is merged
+pr_labels = ["release"]

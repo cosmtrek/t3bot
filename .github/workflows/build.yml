@@ -1,0 +1,81 @@
+# Build static Linux binaries for a release tag and attach them to its GitHub release.
+# Called by release-plz.yml after a release; can also be run by hand to (re)build a tag.
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build, e.g. v0.2.0
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-24.04
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build (static, musl)
+        env:
+          T3BOT_RELEASE: "1"
+        run: |
+          cc_var="CC_$(echo '${{ matrix.target }}' | tr '-' '_')"
+          export "$cc_var=musl-gcc"
+          cargo build --release --locked --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          name="t3bot-${TAG}-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          cp "target/${{ matrix.target }}/release/t3bot" "dist/$name/"
+          cp -r skill contrib README.md CHANGELOG.md LICENSE "dist/$name/"
+          "dist/$name/t3bot" --version | grep -qx "t3bot ${TAG#v}" \
+            || { echo "::error::binary reports $("dist/$name/t3bot" --version), expected ${TAG#v}"; exit 1; }
+          cd dist
+          tar czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*.tar.gz*
+
+  upload:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          cd dist
+          cat *.sha256 > SHA256SUMS
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --verify-tag --generate-notes
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber *.tar.gz *.sha256 SHA256SUMS

@@ -91,18 +91,21 @@ You pick the version; nothing updates on its own.
 - **Machines upgrade when you run `t3bot upgrade`.** It replaces a dev build too, without
   `--force`. `t3bot doctor` says when a newer release exists.
 
-To cut a release from an up-to-date, clean `main`:
+Releases are cut with [release-plz](https://release-plz.dev) from
+[conventional commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `docs:`, …):
 
-```sh
-scripts/release.sh 0.2.0          # --dry-run to stop before commit/tag/push
-```
+1. Every push to `main` opens or updates a **release PR**. It bumps `Cargo.toml` and adds the
+   new section to [`CHANGELOG.md`](CHANGELOG.md). Before 1.0, `feat:` bumps the minor
+   (0.1.0 → 0.2.0), `fix:` and the rest bump the patch, and `feat!:` / `BREAKING CHANGE` bump
+   the minor.
+2. Review it; edit the version or changelog in the PR if needed.
+3. **Merge it** to release. The workflow tags `vX.Y.Z` and creates the GitHub release with the
+   changelog. It then builds static musl binaries for `x86_64` and `aarch64` Linux and
+   attaches `t3bot-<tag>-<target>.tar.gz` (binary, skill, systemd units) with SHA-256
+   checksums.
 
-It bumps `Cargo.toml`/`Cargo.lock`, runs the tests, commits `release: v0.2.0`, tags `v0.2.0` and
-pushes both. The tag starts the `release` workflow. It checks that the tag is on `main` and
-matches `Cargo.toml`, runs the tests, and builds static musl binaries for `x86_64` and `aarch64`
-Linux. It then publishes a GitHub release with `t3bot-<tag>-<target>.tar.gz` (binary, skill,
-systemd units) and SHA-256 checksums. Before 1.0: bump the patch for fixes and the minor for
-features or config changes.
+Nothing is released until a release PR is merged. To rebuild the binaries of an existing tag,
+run the `build` workflow by hand. Configuration: [`release-plz.toml`](release-plz.toml).
 
 ## License
 

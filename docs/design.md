@@ -243,7 +243,7 @@ agent 是通过一个全局安装的 skill（`t3bot/SKILL.md`）知道该怎么�
   - `cmd/*.rs`：每个子命令一个文件。
 - **目录**：`~/.t3bot/state.db`、`~/.t3bot/config.toml`（收件箱所在项目、provider、model、要巡检的项目、可选 `t3_bin`）、`~/.t3bot/prompt.md`（可选）、`~/.t3bot/tick.lock`。`T3BOT_HOME` 可以换目录。
 - **安装 / 升级**：`scripts/install.sh` 默认从 GitHub release 下载对应架构的静态二进制（校验 SHA-256），`--from-source` 则本地编译；装到 `~/.local/bin/t3bot`，把 `skill/t3bot/SKILL.md` 拷到 `~/.claude/skills/`、`~/.agents/skills/`、`~/.gemini/antigravity-cli/skills/`，装上 `contrib/systemd/` 里的 timer。首次安装跑 `t3bot init`（交互填收件箱和巡检项目），之后跑 `t3bot doctor`。`t3bot upgrade` 重新执行安装脚本，配置和数据不动。
-- **发布**：在 `main` 上的提交打 `vX.Y.Z` tag 并推送，`release` workflow 校验 tag 在 main 上且与 `Cargo.toml` 一致，跑测试，构建 x86_64 / aarch64 musl 二进制并发布 release。
+- **发布**：release-plz 按约定式提交（feat/fix…）在每次 push main 后维护一个发布 PR（改版本号、写 CHANGELOG）；合并该 PR 即打 `vX.Y.Z` tag、建 GitHub release，同一个 workflow 里接着构建 x86_64 / aarch64 musl 二进制并上传。本地构建版本号为 `X.Y.Z-dev+<commit>`。
 - **配置**：`t3bot init` 可重复执行，路径统一存成 `~/…`；`t3` 不在 timer 的 PATH 里时自动写 `t3_bin`。`t3bot config set|add-project|rm-project` 改配置，`t3bot doctor` 逐项检查（配置、t3、每个项目、收件箱、skill、timer、linger）。
 - **测试**：只测会出错的地方，即同步规则（settled、gone、某项目列表失败、指纹）、pending 筛选条件、annotate 的指纹校验与 upsert、open 和 close 对 T3 发出的调用、tick 是否唤醒及收件箱复用。用内存 SQLite 加假的 T3 实现（`tests/logic.rs`）。
 - **仓库**：`cosmtrek/t3bot`。
