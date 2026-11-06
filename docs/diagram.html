@@ -1,0 +1,116 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  .wrap{display:flex;flex-direction:column;gap:20px}
+  svg{width:100%;height:auto;display:block}
+  svg text{fill:var(--foreground);font-family:var(--font-sans);font-size:13px}
+  svg .sub{fill:var(--muted-foreground);font-size:11.5px}
+  svg .lbl{fill:var(--muted-foreground);font-size:12px}
+  svg .h{font-weight:600;font-size:14px}
+  .bot{stroke:var(--chart-1);fill:color-mix(in srgb,var(--chart-1) 10%,transparent)}
+  .t3{stroke:var(--chart-2);fill:color-mix(in srgb,var(--chart-2) 8%,transparent)}
+  .inner{stroke:var(--border);fill:var(--card)}
+  .ext{stroke:var(--border);fill:var(--secondary)}
+  .ar{stroke:var(--muted-foreground);stroke-width:1.5;fill:none}
+  .dash{stroke-dasharray:5 4}
+  .warn{stroke:var(--warning)}
+  h3{margin:0 0 8px;font-size:14px}
+  .flows{display:grid;gap:10px}
+  .flow{border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;background:var(--card)}
+  .flow b{font-size:13px}
+  .steps{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:12.5px}
+  .s{padding:3px 8px;border-radius:6px;background:var(--secondary)}
+  .s.bot{border:1px solid var(--chart-1);background:color-mix(in srgb,var(--chart-1) 12%,transparent)}
+  .s.t3{border:1px solid var(--chart-2);background:color-mix(in srgb,var(--chart-2) 10%,transparent)}
+  .s.llm{border:1px solid var(--warning);background:var(--warning-surface,transparent)}
+  .arr{color:var(--muted-foreground)}
+  .rule{font-size:13px;padding:10px 16px;border-radius:var(--radius);border:1px solid var(--chart-1)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted-foreground)}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .lb::before{background:var(--chart-1)} .lt::before{background:var(--chart-2)} .ll::before{background:var(--warning)}
+</style></head><body>
+<div class="wrap">
+<svg viewBox="0 0 710 380" role="img" aria-label="t3bot 与 T3 的职责与调用关系">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted-foreground)"/></marker></defs>
+
+  <!-- externals -->
+  <rect class="ext" x="20" y="14" width="210" height="44" rx="8"/>
+  <text x="125" y="34" text-anchor="middle">系统 cron</text>
+  <text x="125" y="50" text-anchor="middle" class="sub">09:00 · 13:30 · 21:00</text>
+
+  <rect class="ext" x="470" y="14" width="200" height="44" rx="8"/>
+  <text x="570" y="34" text-anchor="middle">你（手机 / 桌面）</text>
+  <text x="570" y="50" text-anchor="middle" class="sub">只看收件箱，一句话批处理</text>
+
+  <!-- t3bot -->
+  <rect class="bot" x="20" y="96" width="210" height="268" rx="12" stroke-width="1.5"/>
+  <text x="36" y="122" class="h">t3bot</text>
+  <text x="36" y="140" class="sub">跟进账本 · 不当编排者</text>
+  <rect class="inner" x="36" y="156" width="178" height="56" rx="8"/>
+  <text x="48" y="178">tasks</text><text x="48" y="198" class="sub">每件事的下一步 · #编号</text>
+  <rect class="inner" x="36" y="222" width="178" height="56" rx="8"/>
+  <text x="48" y="244">threads</text><text x="48" y="264" class="sub">指纹缓存 · 只做变化检测</text>
+  <rect class="inner" x="36" y="288" width="178" height="56" rx="8"/>
+  <text x="48" y="310">inboxes</text><text x="48" y="330" class="sub">每日 📋 收件箱</text>
+
+  <!-- T3 -->
+  <rect class="t3" x="430" y="96" width="260" height="268" rx="12" stroke-width="1.5"/>
+  <text x="446" y="122" class="h">T3 · 执行与编排</text>
+  <rect class="inner" x="446" y="138" width="228" height="74" rx="8"/>
+  <text x="458" y="162">📋 收件箱 thread</text>
+  <text x="458" y="181" class="sub">便宜模型 agent：分类、出报告</text>
+  <text x="458" y="198" class="sub">手里有 shell + MCP</text>
+  <rect class="inner" x="446" y="270" width="228" height="74" rx="8"/>
+  <text x="458" y="294">业务 threads</text>
+  <text x="458" y="313" class="sub">排队、执行、重试都在这里</text>
+  <text x="458" y="330" class="sub">也能说 @t3bot 记一下</text>
+
+  <!-- cron -> t3bot -->
+  <path class="ar" d="M125 58 V94" marker-end="url(#a)"/>
+  <text x="133" y="82" class="lbl">tick</text>
+
+  <!-- you -> inbox -->
+  <path class="ar" d="M570 58 V136" marker-end="url(#a)"/>
+  <text x="578" y="84" class="lbl">看报告</text>
+  <text x="578" y="99" class="lbl">回「关 3；开 1」</text>
+
+  <!-- t3bot -> inbox : wake -->
+  <path class="ar" d="M232 160 H444" marker-end="url(#a)"/>
+  <text x="338" y="152" text-anchor="middle" class="lbl">start / send 唤醒（不 --wait）</text>
+  <!-- inbox -> t3bot : ledger calls -->
+  <path class="ar" d="M444 192 H232" marker-end="url(#a)"/>
+  <text x="338" y="210" text-anchor="middle" class="lbl">pending · annotate · report</text>
+  <text x="338" y="225" text-anchor="middle" class="lbl">close · open</text>
+
+  <!-- t3bot -> business threads -->
+  <path class="ar" d="M232 290 H444" marker-end="url(#a)"/>
+  <text x="338" y="267" text-anchor="middle" class="lbl">list / show（读，0 token）</text>
+  <text x="338" y="282" text-anchor="middle" class="lbl">open → send / start</text>
+  <!-- business -> t3bot : add -->
+  <path class="ar" d="M444 326 H232" marker-end="url(#a)"/>
+  <text x="338" y="344" text-anchor="middle" class="lbl">@t3bot add（随手记）</text>
+
+  <!-- inbox -> business : settle (temporary) -->
+  <path class="ar dash warn" d="M650 212 V268" marker-end="url(#a)"/>
+  <text x="644" y="236" text-anchor="end" class="lbl">MCP organize 收起</text>
+  <text x="644" y="251" text-anchor="end" class="lbl">（临时，等 CLI 补齐）</text>
+</svg>
+
+<div class="rule"><b>一条规则：</b>t3bot 永远不用 <code>--wait</code>，对 T3 只做一次性的读和投递 → 调用链不会成环，不需要区分"谁在调我"。</div>
+
+<div class="flows">
+  <div class="flow"><b>A · 定时巡检</b>
+    <div class="steps"><span class="s">cron</span><span class="arr">→</span><span class="s bot">tick：sync 指纹</span><span class="arr">→</span><span class="s bot">无变化 → 直接退出（0 token）</span></div>
+    <div class="steps"><span class="arr" style="visibility:hidden">→</span><span class="s bot">有变化 → send 唤醒 📋</span><span class="arr">→</span><span class="s llm">agent：pending → 判断 → annotate</span><span class="arr">→</span><span class="s llm">贴出 report</span></div>
+  </div>
+  <div class="flow"><b>B · 批阅</b>「关 3-5；开 1；2 选方案 B」
+    <div class="steps"><span class="s llm">agent</span><span class="arr">→</span><span class="s bot">close 3 4 5 --json</span><span class="arr">→</span><span class="s t3">MCP 收起这几个 thread</span></div>
+    <div class="steps"><span class="s llm">agent</span><span class="arr">→</span><span class="s bot">open 1 · open 2 --say "选 B"</span><span class="arr">→</span><span class="s t3">原 thread 收到消息继续跑 / 随手记新开 thread</span></div>
+  </div>
+  <div class="flow"><b>C · 随手记</b>
+    <div class="steps"><span class="s">任意 thread：@t3bot 记一下 …</span><span class="arr">→</span><span class="s bot">add</span><span class="arr">→</span><span class="s">下次报告里出现 #编号</span></div>
+  </div>
+</div>
+<div class="legend"><span class="lb">t3bot 确定性代码</span><span class="lt">T3 原生能力</span><span class="ll">LLM / 临时绕行</span></div>
+</div>
+</body></html>

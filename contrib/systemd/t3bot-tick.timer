@@ -1,0 +1,10 @@
+[Unit]
+Description=t3bot intraday ticks (wake the inbox only if something changed)
+
+[Timer]
+OnCalendar=*-*-* 13:30:00
+OnCalendar=*-*-* 21:00:00
+Unit=t3bot-tick@changed.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,15 @@
+[package]
+name = "t3bot"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/cosmtrek/t3bot"
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive"] }
+fd-lock = "4.0.4"
+jiff = "0.2.39"
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"

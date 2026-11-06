@@ -1,0 +1,11 @@
+/target
+/dist
+
+# Local state and secrets never belong in the repo.
+.env
+.env.*
+*.db
+*.db-*
+*.sqlite
+*.pem
+*.key
