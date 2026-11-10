@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS threads (
   link                 TEXT,
   status               TEXT NOT NULL,
   settled              INTEGER NOT NULL,
+  settled_at           TEXT,
   snoozed              INTEGER NOT NULL,
   fingerprint          TEXT NOT NULL,
   analyzed_fingerprint TEXT,
@@ -63,6 +64,15 @@ pub fn open_memory() -> Result<Connection> {
 
 fn migrate(db: &Connection) -> Result<()> {
     db.execute_batch(SCHEMA)?;
+    // v0.3: when the thread was settled, so a task reopened after that isn't re-closed.
+    let has_settled_at: bool = db.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('threads') WHERE name = 'settled_at'",
+        [],
+        |r| r.get::<_, i64>(0).map(|n| n > 0),
+    )?;
+    if !has_settled_at {
+        db.execute_batch("ALTER TABLE threads ADD COLUMN settled_at TEXT")?;
+    }
     Ok(())
 }
 
@@ -211,6 +221,22 @@ pub fn previous_inbox(db: &Connection, before: &str) -> Result<Option<(String, S
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .optional()?)
+}
+
+/// Start of the "已收起，已同步关闭" notice window: since yesterday's inbox was created, so
+/// today's first report also lists what was settled after yesterday's last report.
+/// Falls back to today's inbox, then to 24 hours ago.
+pub fn notice_since(db: &Connection, today: &str, now: &jiff::Timestamp) -> Result<jiff::Timestamp> {
+    let prev: Option<String> = db
+        .query_row(
+            "SELECT created_at FROM inboxes WHERE date <= ?1 ORDER BY (date = ?1), date DESC LIMIT 1",
+            [today],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(prev
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_else(|| *now - jiff::SignedDuration::from_hours(24)))
 }
 
 pub fn insert_inbox(db: &Connection, date: &str, thread_id: &str, now: &str) -> Result<()> {

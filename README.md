@@ -61,7 +61,7 @@ the built-in one).
 | `t3bot add <title> [--kind todo\|discuss] [--topic T] [--project P] [--thread ID] [--next TEXT]` | Record a follow-up or note |
 | `t3bot ls [--topic T] [--all] [--json]` | List open (or all) items |
 | `t3bot edit <id> [--kind K] [--topic T] [--title S] [--next TEXT] [--project P]` | Change an item |
-| `t3bot open <ids> [--say TEXT]` | Send `next` (+ say) to the item's thread, or start a thread for a note |
+| `t3bot open <ids> [--say TEXT]` | Send `next` (+ say) to the item's thread, or start a thread for a note; also reopens an item that was auto-closed because its thread was settled |
 | `t3bot close <ids> [--drop] [--json]` | Mark done/dropped; prints `threads_to_settle` for the agent to settle via MCP |
 | `t3bot report [--json]` | Sync and render the report |
 | `t3bot pending --json [--limit N]` | Threads that need (re)classification, with their last messages |

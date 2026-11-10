@@ -81,6 +81,7 @@ CREATE TABLE threads (
   link                 TEXT,                 -- T3 返回的 link，报告里给编号挂链接
   status               TEXT NOT NULL,        -- T3 的 status 原值
   settled              INTEGER NOT NULL,
+  settled_at           TEXT,                 -- T3 的 settledAt，判断任务是不是收起之后又被动过
   snoozed              INTEGER NOT NULL,
   fingerprint          TEXT NOT NULL,        -- "<latestRunId>:<itemCount>"
   analyzed_fingerprint TEXT,                 -- 上次分类时的指纹，NULL 表示从未分类
@@ -105,7 +106,7 @@ CREATE TABLE inboxes (
 
 1. 对 config 里的每个项目调 `t3 thread list --project <路径> --json`，按 thread_id upsert 到 `threads`（重新出现的清掉 `gone_at`）。缓存里 `project_path` 属于列表成功的项目、但这次没出现的 thread 标 `gone_at`；`project_path` 已经不在 config 里的也标 gone。如果某个项目整个列表都拿不到，跳过这个项目，**不要**把它名下的 thread 都标成 gone。之所以按 `project_path` 而不是 `project_id` 判断，是因为列表为空时拿不到项目 id。
 2. thread 消失了：它名下 open 的任务改成 `dropped`，`close_note='thread_gone'`。
-3. thread 变成 settled：只自动关闭 `kind='closeable'` 的任务。todo 和 discuss 保持 open，报告里标"📦 已收起未闭环"。原因是 T3 有自动收起，不能因为收起就默认事情做完了。
+3. thread 变成 settled：它名下 open 的任务不论 kind 一律改成 `done`，`close_note='settled'`。收起就当作已经处理掉了（手动收起或手动解决）。T3 也会自动收起，而且 `thread list` 分不出是谁收的，所以误关的兜底放在提示和恢复上：报告末尾列一次「已收起，已同步关闭」，要继续就「开 N」。例外：任务的 `updated_at` 晚于 thread 的 `settledAt`（收起后又 `open`/`edit` 过），说明我还在跟，保持 open，报告里标"📦 已收起未闭环"，等 thread 下次被收起再关。
 
 **待分类条件**（`pending`）
 
@@ -140,6 +141,7 @@ t3bot init [--prompt]                    # 打印示例 config / 内置唤醒 pr
 
 - 任务已经绑定 thread：执行 `t3 thread send <tid> "<next>\n\n<say>"`。thread 正忙也没关系，T3 会把消息排进队列。
 - 任务是随手记：执行 `t3 thread start <project> - --title <title> --json`（正文 `title + next + say` 走 stdin），再把返回的 threadId 回填到任务上。没有 project 就报错退出。不传 `--provider/--model`，用 T3 对该项目的默认模型（项目没设时用服务端的兜底模型，实测是 codex）。
+- 因 thread 收起而自动关闭的任务（`close_note='settled'`）也能 `open`：发完消息恢复成 `open`。同一个 thread 已经有新的 open 任务时报错，提示去开那个。手动 close/drop 的不能 open。
 - 开工后任务保持 `open`，`next` 清空。thread 停下来以后，下一轮巡检会给同一个任务重新分类。thread 正在跑时，报告把它放进"进行中"分组，不当作待处理事项。
 
 **`pending --json` 输出**（给收件箱 agent 读）
@@ -227,11 +229,14 @@ agent 是通过一个全局安装的 skill（`t3bot/SKILL.md`）知道该怎么�
 - [#3](link) 纯问答已答完
 - [#4](link) 已交接给新 thread
 
+已收起，已同步关闭（要继续就「开 N」）：
+- [#8](link) 登录页重构方案已确认
+
 待分类：2 个 thread（下一轮巡检处理）
 ⚠️ 项目列表失败：/path/to/project（…）
 ```
 
-报告是 markdown：T3 会把相邻的普通行合并成一段，所以条目用列表，编号本身就是 thread 链接。📝 = 随手记（还没有 thread），⏳ = thread 在 waiting，📦 = 已收起未闭环。时长按 `opened_at` 算，不到 1 小时显示"刚刚"。可关一栏带上一句话，方便直接决定。没有分组主题的放在 `[其他]`。如果需要改格式，在 `prompt.md` 里让 agent 在报告前后加内容，报告本体保持不变。
+报告是 markdown：T3 会把相邻的普通行合并成一段，所以条目用列表，编号本身就是 thread 链接。📝 = 随手记（还没有 thread），⏳ = thread 在 waiting，📦 = 已收起未闭环（收起后又被开过）。「已收起，已同步关闭」只是提示：列出从昨天收件箱创建以来因收起而自动关闭的任务（没有昨天的就从今天收件箱、再没有就最近 24 小时），过了一天自然消失，复盘只看上面没收起的事项。时长按 `opened_at` 算，不到 1 小时显示"刚刚"。可关一栏带上一句话，方便直接决定。没有分组主题的放在 `[其他]`。如果需要改格式，在 `prompt.md` 里让 agent 在报告前后加内容，报告本体保持不变。
 
 ## 9. 实现
 

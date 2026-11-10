@@ -120,6 +120,13 @@ pub fn render(ctx: &Ctx, sync: &SyncReport) -> Result<String> {
     if items.is_empty() {
         s += "\n没有未闭环的事项。\n";
     }
+    let settled = settled_since(ctx)?;
+    if !settled.is_empty() {
+        s += "\n已收起，已同步关闭（要继续就「开 N」）：\n";
+        for (t, link) in &settled {
+            s += &format!("- {} {}\n", num(t, link), t.title);
+        }
+    }
     let pending = db::pending_threads(&ctx.db)?.len();
     if pending > 0 {
         s += &format!("\n待分类：{pending} 个 thread（下一轮巡检处理）\n");
@@ -128,6 +135,25 @@ pub fn render(ctx: &Ctx, sync: &SyncReport) -> Result<String> {
         s += &format!("\n⚠️ 项目列表失败：{path}（{}）\n", first_line(err));
     }
     Ok(s)
+}
+
+/// Tasks auto-closed because their thread was settled, within the notice window.
+fn settled_since(ctx: &Ctx) -> Result<Vec<(db::Task, Option<String>)>> {
+    let today = ctx.now.strftime("%Y-%m-%d").to_string();
+    let since = db::notice_since(&ctx.db, &today, &ctx.now.timestamp())?;
+    let mut out = Vec::new();
+    for t in db::tasks_where(&ctx.db, "state = 'done' AND close_note = 'settled'")? {
+        let recent = t.closed_at.as_deref().and_then(|c| c.parse::<Timestamp>().ok()).is_some_and(|c| c >= since);
+        if !recent {
+            continue;
+        }
+        let link = match &t.thread_id {
+            Some(tid) => db::thread(&ctx.db, tid)?.and_then(|r| r.link),
+            None => None,
+        };
+        out.push((t, link));
+    }
+    Ok(out)
 }
 
 fn first_line(s: &str) -> &str {

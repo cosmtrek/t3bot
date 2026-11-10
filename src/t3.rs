@@ -20,6 +20,8 @@ pub struct ThreadInfo {
     #[serde(default)]
     pub settled: bool,
     #[serde(default)]
+    pub settled_at: Option<String>,
+    #[serde(default)]
     pub snoozed: bool,
     #[serde(default)]
     pub item_count: u64,

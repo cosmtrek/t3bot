@@ -15,6 +15,7 @@ fn th(id: &str, project: &str, status: &str, run: &str, items: u64) -> ThreadInf
         status: status.into(),
         latest_run_id: Some(run.into()),
         settled: false,
+        settled_at: None,
         snoozed: false,
         item_count: items,
     }
@@ -60,28 +61,82 @@ fn state(c: &Ctx, id: i64) -> (String, Option<String>) {
 }
 
 #[test]
-fn settled_only_closes_closeable() {
+fn settled_closes_every_kind_and_report_notices_it() {
     let (c, f) = ctx(FakeT3::default());
-    set_list(&f, P1, Ok(vec![th("t1", "pa", "completed", "r1", 3), th("t2", "pa", "completed", "r1", 3), th("t3", "pa", "completed", "r1", 3)]));
+    set_list(&f, P1, Ok(vec![th("t1", "pa", "completed", "r1", 3), th("t2", "pa", "completed", "r1", 3), th("t3", "pa", "completed", "r1", 3), th("t4", "pa", "completed", "r1", 3)]));
     set_list(&f, P2, Ok(vec![]));
     sync(&c).unwrap();
     let todo = task_for(&c, "t1", "todo");
     let disc = task_for(&c, "t2", "discuss");
     let cl = task_for(&c, "t3", "closeable");
+    let live = task_for(&c, "t4", "todo");
 
-    let mut all = vec![th("t1", "pa", "completed", "r1", 3), th("t2", "pa", "completed", "r1", 3), th("t3", "pa", "completed", "r1", 3)];
-    for t in &mut all {
+    let mut all = vec![th("t1", "pa", "completed", "r1", 3), th("t2", "pa", "completed", "r1", 3), th("t3", "pa", "completed", "r1", 3), th("t4", "pa", "completed", "r1", 3)];
+    for t in &mut all[..3] {
         t.settled = true;
+        t.settled_at = Some("2026-11-06T01:00:00Z".into()); // == ctx.now
     }
     set_list(&f, P1, Ok(all));
     let r = sync(&c).unwrap();
-    assert_eq!(r.auto_closed, 1);
-    assert_eq!(state(&c, todo).0, "open");
-    assert_eq!(state(&c, disc).0, "open");
-    assert_eq!(state(&c, cl), ("done".into(), Some("settled".into())));
-    // Report marks the settled-but-open todo.
+    assert_eq!(r.auto_closed, 3);
+    for id in [todo, disc, cl] {
+        assert_eq!(state(&c, id), ("done".into(), Some("settled".into())));
+    }
+    assert_eq!(state(&c, live).0, "open");
+
     let out = report::render(&c, &r).unwrap();
-    assert!(out.contains("📦 已收起未闭环"), "{out}");
+    assert!(!out.contains("📦"), "{out}");
+    let (body, notice) = out.split_once("已收起，已同步关闭").expect(&out);
+    assert!(body.contains("task t4"), "{out}");
+    assert!(!body.contains("task t1"), "settled items stay out of the main list: {out}");
+    for t in ["task t1", "task t2", "task t3"] {
+        assert!(notice.contains(t), "{out}");
+    }
+}
+
+#[test]
+fn settled_notice_window_and_reopen() {
+    let (mut c, f) = ctx(FakeT3::default());
+    let mut t1 = th("t1", "pa", "completed", "r1", 3);
+    set_list(&f, P1, Ok(vec![t1.clone()]));
+    set_list(&f, P2, Ok(vec![]));
+    sync(&c).unwrap();
+    let id = task_for(&c, "t1", "todo");
+    t1.settled = true;
+    t1.settled_at = Some("2026-11-06T01:00:00Z".into());
+    set_list(&f, P1, Ok(vec![t1.clone()]));
+    sync(&c).unwrap();
+    assert_eq!(state(&c, id).0, "done");
+
+    // Next day, after yesterday's inbox: still noticed. The day after that: gone.
+    db::insert_inbox(&c.db, "2026-11-06", "inbox1", "2026-11-06T00:59:00Z").unwrap();
+    c.now = "2026-11-07T09:00:00+08:00[Asia/Singapore]".parse().unwrap();
+    let r = sync(&c).unwrap();
+    assert!(report::render(&c, &r).unwrap().contains("已收起，已同步关闭"));
+    db::insert_inbox(&c.db, "2026-11-07", "inbox2", "2026-11-07T01:00:00Z").unwrap();
+    c.now = "2026-11-08T09:00:00+08:00[Asia/Singapore]".parse().unwrap();
+    assert!(!report::render(&c, &r).unwrap().contains("已收起，已同步关闭"));
+
+    // 开 N brings it back, and the still-settled thread doesn't re-close it.
+    open::open(&c, &[id], Some("继续")).unwrap();
+    assert_eq!(state(&c, id), ("open".into(), None));
+    sync(&c).unwrap();
+    assert_eq!(state(&c, id).0, "open");
+    // Settled again later → closed again.
+    t1.settled_at = Some("2026-11-08T02:00:00Z".into());
+    set_list(&f, P1, Ok(vec![t1]));
+    c.now = "2026-11-08T11:00:00+08:00[Asia/Singapore]".parse().unwrap();
+    sync(&c).unwrap();
+    assert_eq!(state(&c, id).0, "done");
+
+    // Manually closed tasks can't be reopened.
+    let (c2, f2) = ctx(FakeT3::default());
+    set_list(&f2, P1, Ok(vec![th("x", "pa", "completed", "r", 1)]));
+    set_list(&f2, P2, Ok(vec![]));
+    sync(&c2).unwrap();
+    let x = task_for(&c2, "x", "todo");
+    close::close(&c2, &[x], false).unwrap();
+    assert!(open::open(&c2, &[x], Some("hi")).is_err());
 }
 
 #[test]

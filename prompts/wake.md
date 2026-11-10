@@ -23,7 +23,7 @@
 ## 之后我在这里回复时
 我会用编号（就是报告里的 #编号）下指令，比如「关 3-5；开 1；2 选方案 B 直接改」：
 - 关 N：`t3bot close <编号…> --json`，然后对返回的 `threads_to_settle` 里每个 `thread_id` 调 `t3_thread_organize(action:"settle")`。「丢 N」用 `--drop`。
-- 开 N：`t3bot open <编号>`；我附带了话就加 `--say "<我的话>"`，比如「2 选方案 B 直接改」→ `t3bot open 2 --say "选方案 B，直接改"`。
+- 开 N：`t3bot open <编号>`（报告里「已收起，已同步关闭」的编号也能开，会恢复成未闭环）；我附带了话就加 `--say "<我的话>"`，比如「2 选方案 B 直接改」→ `t3bot open 2 --say "选方案 B，直接改"`。
 - 改分类/主题/下一步：`t3bot edit <编号> [--kind todo|discuss|closeable] [--topic T] [--title S] [--next TEXT]`
 - 记一下：`t3bot add "<标题>" [--topic T] [--kind todo|discuss] [--project <路径>]`
 - 看列表：`t3bot ls [--topic T]`

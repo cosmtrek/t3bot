@@ -1,9 +1,10 @@
 //! Design §5 "同步规则". Pulls `t3 thread list` for every configured project into the
 //! `threads` cache and applies the two automatic task transitions (gone → dropped,
-//! settled → closeable done).
+//! settled → done).
 
 use crate::Ctx;
 use anyhow::Result;
+use jiff::Timestamp;
 use rusqlite::params;
 use std::collections::HashSet;
 
@@ -33,16 +34,16 @@ pub fn sync(ctx: &Ctx) -> Result<SyncReport> {
         };
         for t in list {
             tx.execute(
-                "INSERT INTO threads (thread_id, project_id, project_path, title, link, status, settled, snoozed, fingerprint, gone_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, NULL)
+                "INSERT INTO threads (thread_id, project_id, project_path, title, link, status, settled, settled_at, snoozed, fingerprint, gone_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL)
                  ON CONFLICT(thread_id) DO UPDATE SET
                    project_id = excluded.project_id, project_path = excluded.project_path,
                    title = excluded.title, link = excluded.link, status = excluded.status,
-                   settled = excluded.settled, snoozed = excluded.snoozed,
+                   settled = excluded.settled, settled_at = excluded.settled_at, snoozed = excluded.snoozed,
                    fingerprint = excluded.fingerprint, gone_at = NULL",
                 params![
                     t.thread_id, t.project_id, path, t.title, t.link, t.status,
-                    t.settled, t.snoozed, t.fingerprint()
+                    t.settled, t.settled_at, t.snoozed, t.fingerprint()
                 ],
             )?;
             seen.insert(t.thread_id);
@@ -75,13 +76,35 @@ pub fn sync(ctx: &Ctx) -> Result<SyncReport> {
     }
     rep.gone = gone_ids.len();
 
-    // Settled closes only `closeable` tasks; todo/discuss stay open (T3 auto-settles).
-    rep.auto_closed = tx.execute(
-        "UPDATE tasks SET state = 'done', close_note = 'settled', closed_at = ?1, updated_at = ?1
-         WHERE state = 'open' AND kind = 'closeable'
-           AND thread_id IN (SELECT thread_id FROM threads WHERE settled = 1 AND gone_at IS NULL)",
-        params![now],
-    )?;
+    // Settled → done, whatever the kind: a settled thread is taken as handled (by hand or by
+    // T3). The report lists these once under "已收起，已同步关闭"; `open` brings one back.
+    // A task touched after the settle (reopened, edited) stays open until the next settle.
+    let mut to_close = Vec::new();
+    {
+        let mut st = tx.prepare(
+            "SELECT t.id, t.updated_at, th.settled_at FROM tasks t JOIN threads th ON th.thread_id = t.thread_id
+             WHERE t.state = 'open' AND th.settled = 1 AND th.gone_at IS NULL",
+        )?;
+        let rows = st.query_map([], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<String>>(2)?))
+        })?;
+        for row in rows {
+            let (id, updated, settled_at) = row?;
+            let touched_after = match (settled_at.and_then(|s| s.parse::<Timestamp>().ok()), updated.parse::<Timestamp>()) {
+                (Some(s), Ok(u)) => u > s,
+                _ => false,
+            };
+            if !touched_after {
+                to_close.push(id);
+            }
+        }
+    }
+    for id in &to_close {
+        rep.auto_closed += tx.execute(
+            "UPDATE tasks SET state = 'done', close_note = 'settled', closed_at = ?2, updated_at = ?2 WHERE id = ?1",
+            params![id, now],
+        )?;
+    }
     tx.commit()?;
     Ok(rep)
 }
