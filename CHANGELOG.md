@@ -7,6 +7,12 @@ release-plz from conventional commits.
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/cosmtrek/t3bot/compare/v0.2.0...v0.3.0) - 2026-11-10
+
+### Added
+
+- treat settled threads as handled and close their tasks
+
 ## [0.2.0](https://github.com/cosmtrek/t3bot/compare/v0.1.0...v0.2.0) - 2026-11-06
 
 ### Added
