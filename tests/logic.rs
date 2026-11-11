@@ -434,3 +434,18 @@ fn release_version_comparison() {
     assert!(!setup::is_newer("v0.1.0", "0.2.0"));
     assert!(!setup::is_newer("releases", "0.1.0"));
 }
+
+#[test]
+fn parse_json_skips_log_lines_around_json() {
+    use t3bot::t3::{ThreadInfo, parse_json};
+    let json = r#"[{"threadId":"t1","projectId":"p","title":"x","status":"completed","itemCount":3}]"#;
+    let noisy = format!(
+        "[09:50:14.219] WARN (#29): Database migration history diverges. {{ divergent: [ '80:X' ] }}\n{json}\n[09:50:15.000] INFO done\n"
+    );
+    let v: Vec<ThreadInfo> = parse_json(&noisy).unwrap();
+    assert_eq!(v.len(), 1);
+    assert_eq!(v[0].thread_id, "t1");
+    let clean: Vec<ThreadInfo> = parse_json(json).unwrap();
+    assert_eq!(clean, v);
+    assert!(parse_json::<Vec<ThreadInfo>>("[09:50] WARN only logs\n").is_err());
+}

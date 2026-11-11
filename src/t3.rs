@@ -92,16 +92,39 @@ impl CliT3 {
     }
 }
 
+/// Parses the JSON document in `t3 … --json` output. The CLI sometimes prints log lines
+/// (e.g. `[09:50:14.219] WARN …`) to stdout before or after the JSON, so on a plain parse
+/// failure take the first line that parses as the start of a JSON value and ignore the rest.
+pub fn parse_json<T: serde::de::DeserializeOwned>(out: &str) -> serde_json::Result<T> {
+    let first_err = match serde_json::from_str(out) {
+        Ok(v) => return Ok(v),
+        Err(e) => e,
+    };
+    let mut offset = 0;
+    for line in out.split_inclusive('\n') {
+        let rest = &out[offset..];
+        offset += line.len();
+        if !matches!(line.trim_start().chars().next(), Some('[' | '{')) {
+            continue;
+        }
+        let mut stream = serde_json::Deserializer::from_str(rest).into_iter::<T>();
+        if let Some(Ok(v)) = stream.next() {
+            return Ok(v);
+        }
+    }
+    Err(first_err)
+}
+
 impl T3 for CliT3 {
     fn list(&self, project: &str) -> Result<Vec<ThreadInfo>> {
         let out = self.run(&["thread", "list", "--project", project, "--json"], None)?;
-        serde_json::from_str(&out).context("parsing t3 thread list --json")
+        parse_json(&out).context("parsing t3 thread list --json")
     }
 
     fn show(&self, thread_id: &str, messages: u32) -> Result<ThreadShow> {
         let n = messages.to_string();
         let out = self.run(&["thread", "show", thread_id, "--messages", &n, "--json"], None)?;
-        serde_json::from_str(&out).context("parsing t3 thread show --json")
+        parse_json(&out).context("parsing t3 thread show --json")
     }
 
     fn send(&self, thread_id: &str, message: &str) -> Result<()> {
@@ -119,7 +142,7 @@ impl T3 for CliT3 {
             args.extend(["--provider", p, "--model", m]);
         }
         let out = self.run(&args, Some(a.message))?;
-        let v: serde_json::Value = serde_json::from_str(&out).context("parsing t3 thread start --json")?;
+        let v: serde_json::Value = parse_json(&out).context("parsing t3 thread start --json")?;
         v.get("threadId")
             .and_then(|x| x.as_str())
             .map(str::to_string)
