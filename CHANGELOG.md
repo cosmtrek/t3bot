@@ -7,6 +7,12 @@ release-plz from conventional commits.
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/cosmtrek/t3bot/compare/v0.3.0...v0.3.1) - 2026-11-11
+
+### Fixed
+
+- tolerate log lines around t3 --json output
+
 ## [0.3.0](https://github.com/cosmtrek/t3bot/compare/v0.2.0...v0.3.0) - 2026-11-10
 
 ### Added
